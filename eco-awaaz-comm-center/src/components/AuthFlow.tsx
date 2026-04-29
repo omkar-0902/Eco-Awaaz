@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Droplet, Zap, Recycle, ShieldCheck, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
-import logo from '../assets/logo.png';
 import API from '../services/api';
 
 
@@ -47,10 +46,14 @@ const opsConfig = {
 interface AuthFlowProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'login' | 'signup';
+  initialRole?: 'water' | 'electric' | 'waste' | null;
+  onLoginSuccess: (userData: { adminName: string; role: string }) => void;
 }
 
-const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
+const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose, initialMode = 'login', initialRole = null, onLoginSuccess }) => {
   const [flowState, setFlowState] = useState<FlowState>('hidden');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [selectedOp, setSelectedOp] = useState<OperatorType | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -63,18 +66,29 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      setFlowState('choice');
-      setSelectedOp(null);
+      setAuthMode(initialMode);
+      setSelectedOp(initialRole);
+      
+      if (initialRole) {
+        setFlowState('form');
+      } else {
+        setFlowState('choice');
+      }
+      
       document.body.style.overflow = 'hidden';
     } else {
       setFlowState('hidden');
+      setAdminId('');
+      setAdminName('');
+      setPassword('');
+      setError(null);
       document.body.style.overflow = '';
     }
 
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen, initialMode, initialRole]);
 
   const handleSelect = (op: OperatorType) => {
     setSelectedOp(op);
@@ -84,6 +98,25 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
     setTimeout(() => {
       setFlowState('form');
     }, 2800);
+  };
+
+  const handleLogin = async () => {
+    if (!adminId || !password) {
+      setError('Please enter your Admin ID and password.');
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      // API returns { adminId, adminName, role } directly
+      const response = await API.post('/admin/login', { adminId, password });
+      const { adminName: name, role } = response.data;
+      onLoginSuccess({ adminName: name, role });
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const commonApiCall = async (role: OperatorType) => {
@@ -97,7 +130,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
         role
       });
       console.log(`${role} registration successful:`, response.data);
-      alert(`${opsConfig[role].name} Registration Successful!`);
+      alert(`${opsConfig[role].name} registered successfully! Please log in.`);
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Registration failed');
@@ -153,8 +186,28 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
             exit={{ scale: 0.8, opacity: 0 }}
           >
             <div className="text-center mb-12">
-              <h2 className="text-4xl font-black text-white mb-4 tracking-tighter">Authorized Personnel Registration</h2>
-              <p className="text-slate-300 font-medium">Select your municipal domain to initiate the secure signup protocol.</p>
+              <div className="inline-flex p-1 bg-white/10 backdrop-blur-xl rounded-2xl mb-8 border border-white/10 shadow-2xl">
+                <button
+                  onClick={() => setAuthMode('login')}
+                  className={`px-8 py-3 rounded-xl font-bold text-sm transition-all ${authMode === 'login' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}
+                >
+                  LOGIN
+                </button>
+                <button
+                  onClick={() => setAuthMode('signup')}
+                  className={`px-8 py-3 rounded-xl font-bold text-sm transition-all ${authMode === 'signup' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}
+                >
+                  REGISTRATION
+                </button>
+              </div>
+              <h2 className="text-4xl font-black text-white mb-4 tracking-tighter">
+                {authMode === 'login' ? 'Authorized Personnel Entry' : 'Authorized Personnel Registration'}
+              </h2>
+              <p className="text-slate-300 font-medium">
+                {authMode === 'login' 
+                  ? 'Access your municipal dashboard via secure domain tunnel.' 
+                  : 'Select your municipal domain to initiate the secure signup protocol.'}
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -384,22 +437,23 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
 
             <div className="p-10 relative z-10">
               {/* Header */}
-              <div className="flex items-start gap-4 mb-8">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${opsConfig[selectedOp].iconBg} ${opsConfig[selectedOp].iconColor}`}>
-                  {opsConfig[selectedOp].icon}
+              <div className="text-center mb-8">
+                <div className="flex justify-center mb-6">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${opsConfig[selectedOp].iconBg} ${opsConfig[selectedOp].iconColor} shadow-lg`}>
+                    {opsConfig[selectedOp].icon}
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase mb-1">{opsConfig[selectedOp].domain}</h4>
-                  <h2 className="text-2xl font-black text-slate-900 leading-tight tracking-tight">{opsConfig[selectedOp].name} Registration</h2>
-                </div>
-                <div className="ml-auto w-12 h-12 flex items-center justify-center overflow-hidden rounded-full border border-black bg-black opacity-40 shadow-inner">
-                  <img src={logo} alt="Logo" className="w-full h-full object-cover scale-[1.45]" />
-                </div>
+                <h2 className="text-2xl font-black text-slate-900 mb-2">{opsConfig[selectedOp].name} {authMode === 'login' ? 'Entry' : 'Registration'}</h2>
+                <p className="text-xs text-slate-600 font-bold tracking-widest uppercase mb-1">{opsConfig[selectedOp].domain}</p>
               </div>
 
               <div className="flex items-center gap-2 mb-8 bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <ShieldCheck className="w-5 h-5 text-slate-400" />
-                <p className="text-xs text-slate-600 font-bold">Secure endpoint. Provide municipal ID for whitelist validation.</p>
+                <p className="text-xs text-slate-600 font-bold">
+                  {authMode === 'login' 
+                    ? 'Secure authentication tunnel active. Verified municipal IP.' 
+                    : 'Secure endpoint. Provide municipal ID for whitelist validation.'}
+                </p>
               </div>
 
               {error && (
@@ -410,21 +464,25 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
 
               {/* Form Fields */}
               <div className="space-y-6 mb-10">
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-widest block mb-2">ADMIN NAME</label>
+                    <input
+                      type="text"
+                      placeholder="Chief Administrator"
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
+                      className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-colors font-bold shadow-sm"
+                    />
+                  </div>
+                )}
                 <div>
-                  <label className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-widest block mb-2">ADMIN NAME</label>
+                  <label className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-widest block mb-2">
+                    {authMode === 'login' ? 'ADMIN ID / PIN' : 'ADMIN ID'}
+                  </label>
                   <input
                     type="text"
-                    placeholder="Chief Administrator"
-                    value={adminName}
-                    onChange={(e) => setAdminName(e.target.value)}
-                    className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-colors font-bold shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-widest block mb-2">ADMIN ID</label>
-                  <input
-                    type="text"
-                    placeholder="SYS-ADM-1004"
+                    placeholder={authMode === 'login' ? 'e.g. MUN-110022' : 'SYS-ADM-1004'}
                     value={adminId}
                     onChange={(e) => setAdminId(e.target.value)}
                     className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-colors font-bold shadow-sm"
@@ -460,24 +518,26 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
                   <ArrowLeft className="w-4 h-4" />
                   BACK
                 </button>
-                <button 
+                <button
                   disabled={isLoading}
                   onClick={() => {
-                    if (selectedOp === 'water') handleWaterRegistration();
-                    else if (selectedOp === 'electric') handleElectricRegistration();
-                    else if (selectedOp === 'waste') handleWasteRegistration();
+                    if (authMode === 'login') {
+                      handleLogin();
+                    } else {
+                      if (selectedOp === 'water') handleWaterRegistration();
+                      else if (selectedOp === 'electric') handleElectricRegistration();
+                      else if (selectedOp === 'waste') handleWasteRegistration();
+                    }
                   }}
                   className={`flex-1 py-4 rounded-xl font-bold text-sm tracking-wide transition-transform hover:-translate-y-1 active:translate-y-0 ${opsConfig[selectedOp].btnBg} ${opsConfig[selectedOp].btnText} shadow-[0_10px_20px_-10px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed`}
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      PROCESSING...
+                      {authMode === 'login' ? 'AUTHENTICATING...' : 'PROCESSING...'}
                     </>
                   ) : (
-                    <>
-                      Complete Registration &rarr;
-                    </>
+                    <>{authMode === 'login' ? 'Access Command Center →' : 'Complete Registration →'}</>
                   )}
                 </button>
               </div>

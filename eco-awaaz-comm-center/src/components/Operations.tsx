@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Droplet, Zap, Recycle } from 'lucide-react';
+import { Droplet, Zap, Recycle, Lock, X } from 'lucide-react';
 import Card from './Card';
 import Dashboard from './Dashboard';
 
 type OpsCard = {
+  role: 'water' | 'electric' | 'waste';
   domain: string;
   name: string;
   statLabel: string;
@@ -24,6 +25,7 @@ type OpsCard = {
 
 const opsCards: OpsCard[] = [
   {
+    role: 'water',
     domain: 'HYDRO OPERATIONS',
     name: 'Water Command',
     statLabel: 'LOSS REDUCED',
@@ -43,8 +45,8 @@ const opsCards: OpsCard[] = [
         <path d="M0,30 L20,25 L40,35 L60,15 L80,20 L100,5 L100,40 L0,40 Z" fill="url(#blue-grad)" opacity="0.2" />
         <defs>
           <linearGradient id="blue-grad" x1="0" y1="0" x2="0" y2="1">
-             <stop offset="0%" stopColor="#2563eb" />
-             <stop offset="100%" stopColor="transparent" />
+            <stop offset="0%" stopColor="#2563eb" />
+            <stop offset="100%" stopColor="transparent" />
           </linearGradient>
         </defs>
       </svg>
@@ -57,6 +59,7 @@ const opsCards: OpsCard[] = [
     ]
   },
   {
+    role: 'electric',
     domain: 'GRID OPERATIONS',
     name: 'Electricity Command',
     statLabel: 'AVG RESTORE',
@@ -73,7 +76,7 @@ const opsCards: OpsCard[] = [
     chart: (
       <div className="flex items-end gap-1 h-[40px] w-[120px]">
         {[4, 5, 4, 6, 8, 5, 9, 7, 10, 11, 12, 14, 16].map((h, i) => (
-           <div key={i} className="flex-1 bg-amber-400 rounded-sm opacity-90" style={{ height: `${h * 2.5}px` }} />
+          <div key={i} className="flex-1 bg-amber-400 rounded-sm opacity-90" style={{ height: `${h * 2.5}px` }} />
         ))}
       </div>
     ),
@@ -85,6 +88,7 @@ const opsCards: OpsCard[] = [
     ]
   },
   {
+    role: 'waste',
     domain: 'SANITATION OPS',
     name: 'Waste Command',
     statLabel: 'PICKUPS TODAY',
@@ -104,8 +108,8 @@ const opsCards: OpsCard[] = [
         <path d="M0,10 L20,15 L40,25 L60,20 L80,30 L100,35 L100,40 L0,40 Z" fill="url(#green-grad)" opacity="0.2" />
         <defs>
           <linearGradient id="green-grad" x1="0" y1="0" x2="0" y2="1">
-             <stop offset="0%" stopColor="#10b981" />
-             <stop offset="100%" stopColor="transparent" />
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="transparent" />
           </linearGradient>
         </defs>
       </svg>
@@ -119,21 +123,26 @@ const opsCards: OpsCard[] = [
   }
 ];
 
-const Operations: React.FC = () => {
-  const [selectedOps, setSelectedOps] = useState<OpsCard | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+interface OperationsProps {
+  user: { adminName: string; role: string } | null;
+  onOpenAuth: (mode: 'login' | 'signup', role?: 'water' | 'electric' | 'waste') => void;
+}
 
-  useEffect(() => {
-    if (selectedOps) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+const Operations: React.FC<OperationsProps> = ({ user, onOpenAuth }) => {
+  const [activeDashboard, setActiveDashboard] = useState<OpsCard | null>(null);
+
+  const handleCardClick = (card: OpsCard) => {
+    if (!user) {
+      // Not logged in → open login modal for this role
+      onOpenAuth('login', card.role);
+      return;
     }
-    
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [selectedOps]);
+    if (user.role === card.role) {
+      // Logged in and role matches → open inline dashboard
+      setActiveDashboard(card);
+    }
+    // If role doesn't match → do nothing, card is blurred
+  };
 
   return (
     <>
@@ -142,34 +151,58 @@ const Operations: React.FC = () => {
           <span className="text-slate-900 font-bold mb-4 block uppercase font-mono tracking-[0.3em] text-base md:text-lg">01 · Operations</span>
           <h2 className="text-5xl md:text-6xl font-black mb-4 tracking-tighter text-slate-900 whitespace-nowrap">Three operations. One control surface.</h2>
           <p className="text-slate-900 text-lg md:text-xl max-w-3xl font-black">
-            Pick a domain to enter its live dashboard.<br className="hidden md:block"/>
+            Pick a domain to enter its live dashboard.<br className="hidden md:block" />
             Each surface is themed for the signal it monitors — and lights up when things go critical.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 justify-center items-center perspective-[2000px]">
           {opsCards.map((card, idx) => {
+            const isLoggedIn = !!user;
+            const isOwner = isLoggedIn && user.role === card.role;
+            const isLocked = isLoggedIn && !isOwner;
+
             return (
               <motion.div
                 key={idx}
-                className="w-full flex justify-center h-full group"
+                className="w-full flex justify-center h-full group relative"
                 initial={{ opacity: 0, y: 50 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: idx * 0.1, ease: "easeOut" }}
               >
-                 <Card
-                   containerHeight="100%"
-                   containerWidth="100%"
-                   rotateAmplitude={8}
-                   scaleOnHover={1.03}
-                 >
-                    <div className={`w-full h-full bg-white border-2 border-slate-200 shadow-[0_20px_60px_rgba(0,0,0,0.08)] rounded-[24px] overflow-hidden relative flex flex-col transition-colors duration-300 ${card.hoverBorder}`}>
+                {/* Blur/Lock overlay for non-authorized roles */}
+                {isLocked && (
+                  <div className="absolute inset-0 z-20 rounded-[24px] flex flex-col items-center justify-center backdrop-blur-md bg-slate-900/60 pointer-events-auto cursor-not-allowed">
+                    <Lock className="w-10 h-10 text-white/70 mb-3" />
+                    <p className="text-white font-black text-sm tracking-widest uppercase">No Access</p>
+                    <p className="text-white/50 text-xs font-medium mt-1 text-center px-6">
+                      Logged in as <span className="text-white font-bold">{user?.adminName}</span>.<br />
+                      This domain requires a different admin.
+                    </p>
+                  </div>
+                )}
+
+                <div className={`w-full transition-all duration-300 ${isLocked ? 'blur-[1px] pointer-events-none' : ''}`}>
+                  <Card
+                    containerHeight="100%"
+                    containerWidth="100%"
+                    rotateAmplitude={isLocked ? 0 : 8}
+                    scaleOnHover={isLocked ? 1 : 1.03}
+                  >
+                    <div className={`w-full h-full bg-white border-2 shadow-[0_20px_60px_rgba(0,0,0,0.08)] rounded-[24px] overflow-hidden relative flex flex-col transition-colors duration-300 ${isOwner ? `border-2 ${card.hoverBorder} ring-2 ring-offset-2 ring-current` : 'border-slate-200'}`}>
+                      {/* Owner badge */}
+                      {isOwner && (
+                        <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${card.btnBg} ${card.btnText} shadow-lg`}>
+                          ✓ Your Domain
+                        </div>
+                      )}
+
                       {/* Top Glow Gradient */}
                       <div className={`absolute top-0 left-0 right-0 h-[200px] bg-gradient-to-b ${card.glowColor} to-transparent pointer-events-none opacity-40`} />
 
                       <div className="p-8 relative z-10 flex flex-col flex-1">
-                        
+
                         {/* Header */}
                         <div className="flex items-start justify-between mb-8">
                           <div className="flex items-center gap-3">
@@ -186,8 +219,6 @@ const Operations: React.FC = () => {
                           </span>
                         </div>
 
-
-
                         {/* Complaints */}
                         <div className="space-y-3 mb-6 flex-1">
                           {card.tickets.map((t, i) => (
@@ -202,124 +233,88 @@ const Operations: React.FC = () => {
 
                         {/* Footer */}
                         <div className="flex items-center justify-center text-xs text-slate-800 mt-auto pt-5 border-t border-slate-200 font-black uppercase tracking-wide">
-                           <div className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full bg-current ${card.valColor} animate-pulse shadow-sm`} />
-                              <span>Live Sync System</span>
-                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full bg-current ${card.valColor} animate-pulse shadow-sm`} />
+                            <span>Live Sync System</span>
+                          </div>
                         </div>
 
-                        {/* Button replacing card click logic */}
-                        <button 
-                           onClick={() => setSelectedOps(card)}
-                           className={`mt-6 w-full py-3 rounded-xl font-bold text-sm tracking-wide transition-all shadow-md ${card.btnBg} ${card.btnText} hover:scale-[1.02] active:scale-[0.98] cursor-pointer`}
+                        {/* Action Button */}
+                        <button
+                          onClick={() => handleCardClick(card)}
+                          disabled={isLocked}
+                          className={`mt-6 w-full py-3 rounded-xl font-bold text-sm tracking-wide transition-all shadow-md ${card.btnBg} ${card.btnText} hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}
                         >
-                           VIEW DASHBOARD &rarr;
+                          {!isLoggedIn
+                            ? 'LOGIN TO VIEW DASHBOARD →'
+                            : isOwner
+                              ? 'VIEW MY DASHBOARD →'
+                              : 'ACCESS DENIED'}
                         </button>
                       </div>
                     </div>
-                 </Card>
+                  </Card>
+                </div>
               </motion.div>
             );
           })}
         </div>
-        
+
         <div className="flex justify-center mt-12 mb-8">
-           <div className="inline-flex flex-wrap items-center justify-center gap-4 px-8 py-4 bg-slate-900 border border-slate-800 rounded-full shadow-2xl text-sm md:text-base font-mono text-white uppercase tracking-[0.3em] font-black">
-              <span>CLICK VIEW DASHBOARD</span>
-              <span className="text-slate-500">•</span>
-              <span>SECURE LOGIN</span>
-              <span className="text-slate-500">•</span>
-              <span className="text-blue-400">LIVE DASHBOARD</span>
-           </div>
+          <div className="inline-flex flex-wrap items-center justify-center gap-4 px-8 py-4 bg-slate-900 border border-slate-800 rounded-full shadow-2xl text-sm md:text-base font-mono text-white uppercase tracking-[0.3em] font-black">
+            {user ? (
+              <>
+                <span className="text-green-400">✓ AUTHENTICATED</span>
+                <span className="text-slate-500">•</span>
+                <span>{user.adminName}</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-blue-400 uppercase">{user.role} DOMAIN ACTIVE</span>
+              </>
+            ) : (
+              <>
+                <span>CLICK VIEW DASHBOARD</span>
+                <span className="text-slate-500">•</span>
+                <span>SECURE LOGIN</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-blue-400">LIVE DASHBOARD</span>
+              </>
+            )}
+          </div>
         </div>
       </section>
 
-      {/* Dynamic Pop-up Modal */}
+      {/* Inline Dashboard Modal */}
       <AnimatePresence>
-        {selectedOps && (
-          <motion.div 
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md"
+        {activeDashboard && (
+          <motion.div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => { setSelectedOps(null); setIsAuthenticated(false); }}
           >
-            <motion.div 
-              className={`w-full ${isAuthenticated ? 'max-w-[75rem] h-[85vh]' : 'max-w-md'} bg-white rounded-[24px] overflow-hidden relative shadow-2xl border border-slate-100 flex flex-col`}
-              style={{ boxShadow: `0 20px 60px -10px ${selectedOps.glowColorHex}` }}
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              onClick={(e) => e.stopPropagation()}
+            <motion.div
+              className="w-full max-w-[80rem] h-[88vh] bg-white rounded-[24px] overflow-hidden relative shadow-2xl border border-slate-100 flex flex-col"
+              style={{ boxShadow: `0 20px 60px -10px ${activeDashboard.glowColorHex}` }}
+              initial={{ scale: 0.92, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.92, y: 30, opacity: 0 }}
+              transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
             >
-              {isAuthenticated ? (
-                <Dashboard 
-                  domainName={selectedOps.domain}
-                  iconBg={selectedOps.iconBg}
-                  iconColor={selectedOps.iconColor}
-                  themeColor={selectedOps.valColor}
-                  onLogout={() => { setIsAuthenticated(false); setSelectedOps(null); }}
-                />
-              ) : (
-                <>
-                  {/* Modal Top Glow */}
-                  <div className={`absolute top-0 left-0 right-0 h-[100px] bg-gradient-to-b ${selectedOps.glowColor} to-transparent pointer-events-none opacity-50`} />
+              {/* Close button */}
+              <button
+                onClick={() => setActiveDashboard(null)}
+                className="absolute top-4 right-4 z-30 w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors shadow-md cursor-pointer"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
 
-                  <div className="p-8 relative z-10 flex flex-col h-full">
-                {/* Header */}
-                <div className="flex items-start gap-4 mb-8">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${selectedOps.iconBg} ${selectedOps.iconColor}`}>
-                    {selectedOps.icon}
-                  </div>
-                  <div>
-                    <h4 className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase mb-1">{selectedOps.domain}</h4>
-                    <h2 className="text-2xl font-black text-slate-900 leading-tight tracking-tight">{selectedOps.name} Center</h2>
-                  </div>
-                </div>
-
-                <p className="text-sm text-slate-600 mb-8 font-medium">
-                  Sign in with your municipal credentials to access the live operations dashboard.
-                </p>
-
-                {/* Form Fields */}
-                <div className="space-y-6 mb-8">
-                  <div>
-                    <label className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-widest block mb-2">ADMIN ID / PIN</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. MUN-110022" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-widest block mb-2">PASSWORD</label>
-                    <input 
-                      type="password" 
-                      placeholder="••••••••" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-medium"
-                    />
-                  </div>
-                </div>
-
-                {/* Login Button */}
-                <button 
-                  onClick={() => setIsAuthenticated(true)}
-                  className={`w-full py-4 rounded-xl font-bold text-sm tracking-wide transition-transform hover:scale-[1.02] active:scale-[0.98] ${selectedOps.btnBg} ${selectedOps.btnText} mb-6 shadow-md`}
-                >
-                  Access Command Center &rarr;
-                </button>
-
-                {/* Footer */}
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-auto">
-                  <button onClick={() => { setSelectedOps(null); setIsAuthenticated(false); }} className="hover:text-slate-700 transition-colors cursor-pointer">
-                    &larr; Back to selector
-                  </button>
-                  <span>SSO • SAML 2.0</span>
-                </div>
-              </div>
-              </>
-            )}
+              <Dashboard
+                domainName={activeDashboard.domain}
+                iconBg={activeDashboard.iconBg}
+                iconColor={activeDashboard.iconColor}
+                themeColor={activeDashboard.valColor}
+                onLogout={() => setActiveDashboard(null)}
+              />
             </motion.div>
           </motion.div>
         )}

@@ -5,6 +5,7 @@ import Problem from './components/Problem';
 import Process from './components/Process';
 import Operations from './components/Operations';
 import Impact from './components/Impact';
+import AuthFlow from './components/AuthFlow';
 import Footer from './components/Footer';
 
 // Per-section color mapping (saturated, vivid versions from logo)
@@ -19,6 +20,10 @@ const SECTION_COLORS: Record<string, string> = {
 
 function App() {
   const [bgColor, setBgColor] = useState(SECTION_COLORS.hero);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [initialAuthMode, setInitialAuthMode] = useState<'login' | 'signup'>('login');
+  const [initialAuthRole, setInitialAuthRole] = useState<'water' | 'electric' | 'waste' | null>(null);
+  const [user, setUser] = useState<{ adminName: string; role: string } | null>(null);
 
   const heroRef = useRef<HTMLDivElement>(null);
   const commandRef = useRef<HTMLDivElement>(null);
@@ -75,15 +80,43 @@ function App() {
       {/* Subtle grid texture */}
       <div className="fixed inset-0 z-[-1] min-h-screen grid-bg pointer-events-none opacity-30" />
 
-      <Navbar />
+      <Navbar 
+        user={user}
+        onLogout={() => setUser(null)}
+        onOpenAuth={(mode, role) => {
+          setInitialAuthMode(mode);
+          setInitialAuthRole(role || null);
+          setIsAuthOpen(true);
+        }} 
+      />
 
       <main className="flex flex-col gap-16 md:gap-32 pb-32 pt-16 relative z-10">
         <div ref={heroRef} data-section="hero"><Hero /></div>
-        <div ref={commandRef} data-section="operations"><Operations /></div>
+        <div ref={commandRef} data-section="operations">
+          <Operations 
+            user={user}
+            onOpenAuth={(mode, role) => {
+              setInitialAuthMode(mode);
+              setInitialAuthRole(role || null);
+              setIsAuthOpen(true);
+            }} 
+          />
+        </div>
         <div ref={problemRef} data-section="problem"><Problem /></div>
         <div ref={systemRef} data-section="process"><Process /></div>
         <div ref={impactRef} data-section="impact"><Impact /></div>
       </main>
+
+      <AuthFlow 
+        isOpen={isAuthOpen} 
+        onClose={() => setIsAuthOpen(false)} 
+        initialMode={initialAuthMode}
+        initialRole={initialAuthRole}
+        onLoginSuccess={(userData) => {
+          setUser(userData);
+          setIsAuthOpen(false);
+        }}
+      />
 
       <div ref={footerRef} data-section="footer">
         <Footer />

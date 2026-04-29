@@ -9,7 +9,7 @@ const Hero: React.FC = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-100 blur-[120px] rounded-full pointer-events-none opacity-50" />
       <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-amber-100 blur-[100px] rounded-full pointer-events-none opacity-50" />
 
-      <motion.div 
+      <motion.div
         className="z-10 flex flex-col items-center text-center max-w-[1200px] mx-auto pb-48"
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -45,14 +45,14 @@ const Hero: React.FC = () => {
       </motion.div>
 
       {/* Scroll Down Indicator */}
-      <motion.div 
+      <motion.div
         className="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1, duration: 1 }}
       >
         <span className="text-sm font-black tracking-[0.3em] text-slate-800 uppercase">Scroll Down</span>
-        <motion.div 
+        <motion.div
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
           className="text-slate-900"
