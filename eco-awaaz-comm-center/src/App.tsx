@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
-import ProblemSection from './components/ProblemSection';
-import SystemSection from './components/SystemSection';
-import CommandCenter from './components/CommandCenter';
-import ImpactSection from './components/ImpactSection';
+import Problem from './components/Problem';
+import Process from './components/Process';
+import Operations from './components/Operations';
+import Impact from './components/Impact';
 import Footer from './components/Footer';
 
 // Per-section color mapping (saturated, vivid versions from logo)
 const SECTION_COLORS: Record<string, string> = {
-  hero:    'rgba(34, 139, 34, 0.55)',    // Forest green
-  command: 'rgba(30, 100, 220, 0.55)',    // Vivid blue
-  problem: 'rgba(240, 150, 20, 0.55)',    // Orange-yellow
-  system:  'rgba(34, 139, 34, 0.55)',     // Forest green
-  impact:  'rgba(30, 100, 220, 0.55)',    // Vivid blue
-  footer:  'rgba(34, 139, 34, 0.55)',     // Forest green
+  hero:       'rgba(34, 139, 34, 0.55)',
+  operations: 'rgba(30, 100, 220, 0.55)',
+  problem:    'rgba(240, 150, 20, 0.55)',
+  process:    'rgba(34, 139, 34, 0.55)',
+  impact:     'rgba(30, 100, 220, 0.55)',
+  footer:     'rgba(34, 139, 34, 0.55)',
 };
 
 function App() {
@@ -30,9 +30,9 @@ function App() {
   useEffect(() => {
     const sectionMap: { ref: React.RefObject<HTMLDivElement | null>; key: string }[] = [
       { ref: heroRef, key: 'hero' },
-      { ref: commandRef, key: 'command' },
+      { ref: commandRef, key: 'operations' },
       { ref: problemRef, key: 'problem' },
-      { ref: systemRef, key: 'system' },
+      { ref: systemRef, key: 'process' },
       { ref: impactRef, key: 'impact' },
       { ref: footerRef, key: 'footer' },
     ];
@@ -79,10 +79,10 @@ function App() {
 
       <main className="flex flex-col gap-16 md:gap-32 pb-32 pt-16 relative z-10">
         <div ref={heroRef} data-section="hero"><Hero /></div>
-        <div ref={commandRef} data-section="command"><CommandCenter /></div>
-        <div ref={problemRef} data-section="problem"><ProblemSection /></div>
-        <div ref={systemRef} data-section="system"><SystemSection /></div>
-        <div ref={impactRef} data-section="impact"><ImpactSection /></div>
+        <div ref={commandRef} data-section="operations"><Operations /></div>
+        <div ref={problemRef} data-section="problem"><Problem /></div>
+        <div ref={systemRef} data-section="process"><Process /></div>
+        <div ref={impactRef} data-section="impact"><Impact /></div>
       </main>
 
       <div ref={footerRef} data-section="footer">

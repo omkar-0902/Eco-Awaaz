@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import PillNav from './PillNav';
-import SignupFlow from './SignupFlow';
+import Menu from './Menu';
+import AuthFlow from './AuthFlow';
 
 import logo from '../assets/logo.png';
 
@@ -22,8 +22,8 @@ const Navbar: React.FC = () => {
 
   const navItems = [
     { label: 'Problem', href: '#problem' },
-    { label: 'System', href: '#system' },
-    { label: 'Command center', href: '#command-center' },
+    { label: 'Process', href: '#process' },
+    { label: 'Operations', href: '#operations' },
     { label: 'Impact', href: '#impact' }
   ];
 
@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
           </div>
 
           <div className="flex-1 flex justify-center">
-            <PillNav 
+            <Menu 
               items={navItems}
               activeHref={activeHash}
               baseColor="#ffffff" 
@@ -62,8 +62,8 @@ const Navbar: React.FC = () => {
       </nav>
     </div>
 
-    {/* Dedicated User Signup Flow that overlays entire UI */}
-    <SignupFlow isOpen={isSignupOpen} onClose={() => setIsSignupOpen(false)} />
+    {/* Dedicated User Auth Flow that overlays entire UI */}
+    <AuthFlow isOpen={isSignupOpen} onClose={() => setIsSignupOpen(false)} />
     </>
   );
 };
