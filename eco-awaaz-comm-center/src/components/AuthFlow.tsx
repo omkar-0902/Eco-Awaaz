@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Droplet, Zap, Recycle, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Droplet, Zap, Recycle, ShieldCheck, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import logo from '../assets/logo.png';
+import API from '../services/api';
+
 
 type OperatorType = 'water' | 'electric' | 'waste';
 type FlowState = 'hidden' | 'choice' | 'animating' | 'form';
@@ -52,6 +54,13 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
   const [selectedOp, setSelectedOp] = useState<OperatorType | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Form State
+  const [adminName, setAdminName] = useState('');
+  const [adminId, setAdminId] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       setFlowState('choice');
@@ -75,6 +84,50 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
     setTimeout(() => {
       setFlowState('form');
     }, 2800);
+  };
+
+  const commonApiCall = async (role: OperatorType) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await API.post('/admin/register', {
+        adminId,
+        adminName,
+        password,
+        role
+      });
+      console.log(`${role} registration successful:`, response.data);
+      alert(`${opsConfig[role].name} Registration Successful!`);
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleWaterRegistration = async () => {
+    if (!adminName || !adminId || !password) {
+      setError('Please fill in all fields for Water Command.');
+      return;
+    }
+    await commonApiCall('water');
+  };
+
+  const handleElectricRegistration = async () => {
+    if (!adminName || !adminId || !password) {
+      setError('Please fill in all fields for Electric Command.');
+      return;
+    }
+    await commonApiCall('electric');
+  };
+
+  const handleWasteRegistration = async () => {
+    if (!adminName || !adminId || !password) {
+      setError('Please fill in all fields for Waste Command.');
+      return;
+    }
+    await commonApiCall('waste');
   };
 
   if (!isOpen && flowState === 'hidden') return null;
@@ -318,6 +371,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
         {/* 3. Form View */}
         {flowState === 'form' && selectedOp && (
           <motion.div
+
             className="w-full max-w-md bg-white rounded-[32px] overflow-hidden relative shadow-2xl border border-slate-100 z-30"
             style={{ boxShadow: `0 20px 80px -10px ${opsConfig[selectedOp].glowColorHex}` }}
             initial={{ scale: 0.9, y: 30, opacity: 0 }}
@@ -348,6 +402,12 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
                 <p className="text-xs text-slate-600 font-bold">Secure endpoint. Provide municipal ID for whitelist validation.</p>
               </div>
 
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs font-bold uppercase">
+                  {error}
+                </div>
+              )}
+
               {/* Form Fields */}
               <div className="space-y-6 mb-10">
                 <div>
@@ -355,6 +415,8 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
                   <input
                     type="text"
                     placeholder="Chief Administrator"
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
                     className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-colors font-bold shadow-sm"
                   />
                 </div>
@@ -363,6 +425,8 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
                   <input
                     type="text"
                     placeholder="SYS-ADM-1004"
+                    value={adminId}
+                    onChange={(e) => setAdminId(e.target.value)}
                     className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-colors font-bold shadow-sm"
                   />
                 </div>
@@ -372,6 +436,8 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
                     <input
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3.5 pr-12 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-colors font-bold shadow-sm"
                     />
                     <button
@@ -394,8 +460,25 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ isOpen, onClose }) => {
                   <ArrowLeft className="w-4 h-4" />
                   BACK
                 </button>
-                <button className={`flex-1 py-4 rounded-xl font-bold text-sm tracking-wide transition-transform hover:-translate-y-1 active:translate-y-0 ${opsConfig[selectedOp].btnBg} ${opsConfig[selectedOp].btnText} shadow-[0_10px_20px_-10px_rgba(0,0,0,0.3)]`}>
-                  Complete Registration &rarr;
+                <button 
+                  disabled={isLoading}
+                  onClick={() => {
+                    if (selectedOp === 'water') handleWaterRegistration();
+                    else if (selectedOp === 'electric') handleElectricRegistration();
+                    else if (selectedOp === 'waste') handleWasteRegistration();
+                  }}
+                  className={`flex-1 py-4 rounded-xl font-bold text-sm tracking-wide transition-transform hover:-translate-y-1 active:translate-y-0 ${opsConfig[selectedOp].btnBg} ${opsConfig[selectedOp].btnText} shadow-[0_10px_20px_-10px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed`}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      PROCESSING...
+                    </>
+                  ) : (
+                    <>
+                      Complete Registration &rarr;
+                    </>
+                  )}
                 </button>
               </div>
 
