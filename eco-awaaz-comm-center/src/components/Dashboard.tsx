@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, BarChart3, Droplet } from 'lucide-react';
+import { MapPin, BarChart3, Droplet, Loader2, CheckCircle2 } from 'lucide-react';
+import API from '../services/api';
 
 interface AreaData {
   pin: string;
@@ -127,21 +128,56 @@ interface LiveDashboardProps {
 
 const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg, iconColor, themeColor }) => {
   const [hydroPhase, setHydroPhase] = useState<'droplet' | 'vortex'>('droplet');
+  const [reportText, setReportText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     if (domainName === 'HYDRO OPERATIONS') {
+
       const timer = setTimeout(() => setHydroPhase('vortex'), 2200);
       return () => clearTimeout(timer);
     }
   }, [domainName]);
 
-  const getInitialData = () => {
-    if (domainName === 'GRID OPERATIONS') return gridMockData[0];
-    if (domainName === 'SANITATION OPS') return sanitationMockData[0];
-    return hydroMockData[0];
-  };
+  const [activeData, setActiveData] = useState<AreaData | null>(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
-  const [activeData] = useState<AreaData | null>(getInitialData());
+  useEffect(() => {
+    let endpoint = '';
+    if (domainName === 'GRID OPERATIONS') endpoint = '/dashboard/electricity';
+    else if (domainName === 'SANITATION OPS') endpoint = '/dashboard/waste';
+    else endpoint = '/dashboard/water';
+
+    setIsDataLoading(true);
+    API.get(endpoint)
+      .then(res => {
+        const data = res.data;
+        const colorPalette = ['bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500', 'bg-indigo-500'];
+        const breakdown = Object.entries(data.complaintTypes || {}).map(([label, count], idx) => ({
+          label: label.toUpperCase(),
+          count: count as number,
+          color: colorPalette[idx % colorPalette.length]
+        }));
+        
+        setActiveData({
+          pin: data.topPostalCode || 'N/A',
+          name: data.topAddress || 'N/A',
+          totalComplaints: data.totalComplaints || 0,
+          breakdown
+        });
+      })
+      .catch(err => {
+        console.error('Failed to fetch dashboard data:', err);
+        // Fallback to mock data if API fails to keep UI gracefully filled
+        if (domainName === 'GRID OPERATIONS') setActiveData(gridMockData[0]);
+        else if (domainName === 'SANITATION OPS') setActiveData(sanitationMockData[0]);
+        else setActiveData(hydroMockData[0]);
+      })
+      .finally(() => {
+        setIsDataLoading(false);
+      });
+  }, [domainName]);
 
   return (
     <div className="w-full h-full flex flex-col bg-slate-50 relative rounded-[24px] overflow-hidden">
@@ -171,90 +207,68 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
               )}
             </AnimatePresence>
 
-            {/* Phase 2: Full-Fledged Real-Life Whirlpool */}
+            {/* Phase 2: Rain and Dark Clouds */}
             <motion.div 
-              className="absolute inset-0 flex items-center justify-center"
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: hydroPhase === 'vortex' ? 1 : 0, scale: hydroPhase === 'vortex' ? 1 : 0.5 }}
-              transition={{ duration: 1, ease: "easeOut" }}
+              className="absolute inset-0 flex items-center justify-center overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: hydroPhase === 'vortex' ? 1 : 0 }}
+              transition={{ duration: 1.5, ease: "easeInOut" }}
             >
-              {/* Concentric Organic Waves (Circles and circles) */}
-              {[...Array(15)].map((_, i) => (
+              {/* Dark stormy background overlay */}
+              <div className="absolute inset-0 bg-slate-900/60" />
+
+              {/* Raindrops */}
+              {[...Array(60)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute"
+                  className="absolute w-0.5 bg-gradient-to-b from-transparent via-blue-200 to-blue-400 rounded-full"
                   style={{
-                    width: `${(i + 1) * 12}%`,
-                    height: `${(i + 1) * 12}%`,
+                    left: `${Math.random() * 100}%`,
+                    top: `-10%`,
+                    height: `${Math.random() * 20 + 20}px`,
+                    opacity: Math.random() * 0.5 + 0.3,
                   }}
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: (i + 1) * 3, repeat: Infinity, ease: "linear" }}
-                >
-                  <svg viewBox="0 0 100 100" className="w-full h-full">
-                    {/* Realistic Wave Path with Sinusoidal Distortion */}
-                    <motion.path
-                      d={i % 2 === 0 ? 
-                        "M50,10 C65,10 80,25 90,50 C80,75 65,90 50,90 C35,90 20,75 10,50 C20,25 35,10 50,10" :
-                        "M50,5 Q75,5 95,50 T50,95 Q25,95 5,50 T50,5"
-                      }
-                      stroke="rgba(96, 165, 250, 0.4)"
-                      strokeWidth={1.5 / (i * 0.5 + 1)}
-                      fill="none"
-                      animate={{
-                        strokeWidth: [0.5, 2, 0.5],
-                        opacity: [0.3, 0.6, 0.3]
-                      }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    />
-                  </svg>
-                </motion.div>
-              ))}
-
-              {/* Foamy / Frothy Vortex Core */}
-              <div className="absolute w-[30%] h-[30%] z-10 pointer-events-none">
-                 <motion.div 
-                    className="absolute inset-0 bg-blue-400/10 rounded-full blur-[40px]"
-                    animate={{ scale: [0.8, 1.2, 0.8] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                 />
-                 {/* Foam Spirals */}
-                 {[...Array(8)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute top-1/2 left-1/2 w-full h-1 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-                      style={{ 
-                        originX: '0%', 
-                        rotate: i * 45,
-                        width: '150%'
-                      }}
-                      animate={{ rotate: (i * 45) + 360 }}
-                      transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                    />
-                 ))}
-              </div>
-
-              {/* Central Abyss */}
-              <div className="absolute w-[8%] h-[8%] bg-black rounded-full shadow-[0_0_60px_#000] z-20 overflow-hidden">
-                 <motion.div 
-                   className="absolute inset-0 bg-blue-500/20"
-                   animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }}
-                   transition={{ duration: 1, repeat: Infinity }}
-                 />
-              </div>
-
-              {/* Splash Particles */}
-              {[...Array(40)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-1 h-3 bg-white/40 rounded-full blur-[1px]"
-                  style={{ 
-                    rotate: Math.random() * 360,
+                  animate={{
+                    y: ['0vh', '120vh'], // Fall from top to bottom
                   }}
-                  initial={{ x: Math.cos(i) * 300, y: Math.sin(i) * 300, scale: 1 }}
-                  animate={{ x: 0, y: 0, scale: 0, rotate: 1080 }}
-                  transition={{ duration: Math.random() * 2 + 1, repeat: Infinity, ease: "circIn" }}
+                  transition={{
+                    duration: Math.random() * 0.5 + 0.7,
+                    repeat: Infinity,
+                    ease: "linear",
+                    delay: Math.random() * 2,
+                  }}
                 />
               ))}
+
+              {/* Dark Clouds Layer 1 (Back) */}
+              <motion.div
+                className="absolute top-0 w-[200%] h-32 flex opacity-80"
+                animate={{ x: ['0%', '-50%'] }}
+                transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
+              >
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="w-1/3 h-full bg-slate-800 rounded-b-full blur-3xl scale-y-150 transform -translate-y-8" />
+                ))}
+              </motion.div>
+
+              {/* Dark Clouds Layer 2 (Front) */}
+              <motion.div
+                className="absolute -top-10 w-[200%] h-40 flex opacity-90"
+                animate={{ x: ['-50%', '0%'] }}
+                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+              >
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="w-1/2 h-full bg-slate-900 rounded-b-full blur-2xl scale-y-125 translate-y-4" />
+                ))}
+              </motion.div>
+
+              {/* Periodic Lightning Flashes */}
+              <motion.div
+                className="absolute inset-0 bg-white"
+                animate={{ opacity: [0, 0, 0, 0.4, 0, 0, 0.2, 0, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+                style={{ mixBlendMode: 'overlay' }}
+              />
             </motion.div>
 
             {/* Rising water from bottom (to cover the terrain crack) */}
@@ -306,7 +320,7 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
             { id: 3, x: 950, y: 1100, scale: 1.6 }
          ];
 
-         const getPts = (t: any) => ({
+         const getPts = (t: { x: number; y: number; scale: number }) => ({
             topL: { x: t.x - 30*t.scale, y: t.y - 270*t.scale },
             topR: { x: t.x + 30*t.scale, y: t.y - 270*t.scale },
             midL: { x: t.x - 45*t.scale, y: t.y - 240*t.scale },
@@ -318,7 +332,7 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
          const pts1 = getPts(towers[0]);
          const pts3 = getPts(towers[1]);
 
-         const wire = (p1: any, p2: any) => {
+         const wire = (p1: { x: number; y: number }, p2: { x: number; y: number }) => {
              const midX = (p1.x + p2.x) / 2;
              const sagDist = Math.abs(p1.x - p2.x) * 0.15; // Natural gravity line
              const sagY = Math.max(p1.y, p2.y) + sagDist; 
@@ -426,7 +440,7 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
             <div className="absolute bottom-0 w-full h-1/2 bg-gradient-to-t from-emerald-100/60 to-transparent mix-blend-multiply border-b-[12px] border-slate-300" />
             
             {/* Left Corner: Multiple Dustbins */}
-            <div className="absolute bottom-3 left-4 md:left-16 flex items-end gap-1 opacity-90 drop-shadow-md">
+            <div className="absolute bottom-3 left-0 md:left-4 flex items-end gap-1 opacity-90 drop-shadow-md">
                {/* Dustbin 1 */}
                <svg width="50" height="70" viewBox="0 0 60 80" className="text-slate-600">
                   <path d="M10,20 L50,20 L45,80 L15,80 Z" fill="currentColor"/>
@@ -457,7 +471,7 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
             </div>
 
             {/* Right Corner: Garbage Truck */}
-            <div className="absolute bottom-3 right-4 md:right-16 opacity-90 drop-shadow-xl">
+            <div className="absolute bottom-3 right-0 md:right-4 opacity-90 drop-shadow-xl">
                <svg width="180" height="120" viewBox="0 0 150 100">
                   {/* Truck Rear Body (Compactor) */}
                   <path d="M 50,30 L 140,30 L 145,80 L 50,80 Z" fill="#166534" />
@@ -511,55 +525,71 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
                animate={{ opacity: 1, scale: 1 }}
                className="max-w-4xl mx-auto"
              >
-                {/* Data Header */}
-                <div className="bg-white rounded-[24px] p-8 border border-slate-200 shadow-lg mb-8 flex flex-col md:flex-row items-center md:items-start justify-between gap-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-                  
-                  <div>
-                    <h4 className="text-xs font-mono text-slate-500 font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                      <MapPin size={14} className="text-blue-500"/> POSTAL ZONE {activeData.pin}
-                    </h4>
-                    <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter mb-2">{activeData.name}</h2>
-                    <span className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase tracking-wider rounded-md">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Nodes Responsive
-                    </span>
-                  </div>
-
-                  <div className="text-center md:text-right bg-blue-50 border border-blue-100 rounded-2xl p-6 min-w-[200px] z-10 shadow-sm">
-                    <h4 className="text-[11px] font-mono font-bold text-blue-600 uppercase tracking-widest mb-1">Total Complaints</h4>
-                    <div className="text-5xl font-black text-blue-700 tracking-tighter">{activeData.totalComplaints.toLocaleString()}</div>
-                    <div className="text-xs text-blue-500 font-bold mt-2 border-t border-blue-200/50 pt-2">Last 72 hours</div>
-                  </div>
-                </div>
-
-                {/* Graph Area */}
-                <div className="bg-white rounded-[24px] p-8 border border-slate-200 shadow-lg overflow-hidden">
-                   <div className="flex items-center justify-between mb-8">
-                     <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                       <BarChart3 size={20} className="text-slate-400" />
-                       Frequency Graph
-                     </h3>
+              {isDataLoading || !activeData ? (
+                 <div className="flex flex-col items-center justify-center p-24 text-slate-400">
+                    <Loader2 className="w-12 h-12 animate-spin mb-4" />
+                    <p className="font-bold tracking-widest uppercase">Fetching Live Data...</p>
+                 </div>
+              ) : (
+                <div 
+                  key={activeData.pin}
+                  className="max-w-4xl mx-auto"
+                >
+                   {/* Data Header */}
+                   <div className="bg-white rounded-[24px] p-8 border border-slate-200 shadow-lg mb-8 flex flex-col md:flex-row items-center md:items-start justify-between gap-6 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                     
+                     <div>
+                       <h4 className="text-xs font-mono text-slate-500 font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                         <MapPin size={14} className="text-blue-500"/> TOP POSTAL ZONE
+                       </h4>
+                       <h2 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter mb-4">{activeData.pin}</h2>
+                       <span className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase tracking-wider rounded-md">
+                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Metrics Active
+                       </span>
+                     </div>
+  
+                     <div className="text-center md:text-right bg-blue-50 border border-blue-100 rounded-2xl p-6 min-w-[200px] z-10 shadow-sm">
+                       <h4 className="text-[11px] font-mono font-bold text-blue-600 uppercase tracking-widest mb-1">Total Complaints</h4>
+                       <div className="text-5xl font-black text-blue-700 tracking-tighter">{activeData.totalComplaints.toLocaleString()}</div>
+                       <div className="text-xs text-blue-500 font-bold mt-2 border-t border-blue-200/50 pt-2">Last 72 hours</div>
+                     </div>
                    </div>
-
-                   <div className="space-y-6">
-                     {activeData.breakdown.map((item, idx) => (
-                       <div key={idx} className="relative">
-                          <div className="flex justify-between text-sm font-bold mb-2">
-                             <span className="text-slate-800 tracking-widest uppercase text-xs">{item.label}</span>
-                             <span className="text-slate-500 font-mono">{item.count.toLocaleString()}</span>
-                          </div>
-                          <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner flex">
-                             <motion.div 
-                               initial={{ width: 0 }}
-                               animate={{ width: `${(item.count / activeData.totalComplaints) * 100}%` }}
-                               transition={{ duration: 1, delay: 0.2 + (idx * 0.1), ease: "easeOut" }}
-                               className={`h-full ${item.color} shadow-sm rounded-full`}
-                             />
-                          </div>
-                       </div>
-                     ))}
+  
+                   {/* Graph Area */}
+                   <div className="bg-white rounded-[24px] p-8 border border-slate-200 shadow-lg overflow-hidden">
+                      <div className="flex items-center justify-between mb-8">
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                          <BarChart3 size={20} className="text-slate-400" />
+                          Complaint Frequency Graph
+                        </h3>
+                      </div>
+  
+                      <div className="space-y-6">
+                        {activeData.breakdown.length === 0 ? (
+                           <div className="text-center text-slate-400 font-bold py-6">All clear! No active complaints.</div>
+                        ) : (
+                          activeData.breakdown.map((item, idx) => (
+                            <div key={idx} className="relative">
+                               <div className="flex justify-between text-sm font-bold mb-2">
+                                  <span className="text-slate-800 tracking-widest uppercase text-xs">{item.label}</span>
+                                  <span className="text-slate-500 font-mono">{item.count.toLocaleString()}</span>
+                               </div>
+                               <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner flex">
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(item.count / activeData.totalComplaints) * 100}%` }}
+                                    transition={{ duration: 1, delay: 0.2 + (idx * 0.1), ease: "easeOut" }}
+                                    className={`h-full ${item.color} shadow-sm rounded-full`}
+                                  />
+                               </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                    </div>
                 </div>
+              )}
 
                 {/* Domain Specific Reporting Section */}
                 <div className="bg-white rounded-[24px] p-8 mt-8 border border-slate-200 shadow-lg relative overflow-hidden">
@@ -568,6 +598,8 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
                        <div>
                           <label className="text-xs font-mono text-slate-500 font-black uppercase tracking-[0.2em] mb-4 block">Power Outage Reason</label>
                           <textarea 
+                            value={reportText}
+                            onChange={(e) => setReportText(e.target.value)}
                             placeholder="Describe the nature of the grid failure or maintenance requirement..."
                             className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 text-slate-900 font-bold placeholder:text-slate-300 focus:outline-none focus:border-amber-500/50 transition-all min-h-[120px] shadow-inner"
                           />
@@ -577,6 +609,8 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
                        <div>
                           <label className="text-xs font-mono text-slate-500 font-black uppercase tracking-[0.2em] mb-4 block">Water Supply Arrival Time and Date</label>
                           <textarea 
+                            value={reportText}
+                            onChange={(e) => setReportText(e.target.value)}
                             placeholder="Enter arrival day, date, and approximate time window manually (e.g. Monday, 12th Oct, 10:00 AM)..."
                             className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 text-slate-900 font-bold placeholder:text-slate-300 focus:outline-none focus:border-blue-500/50 transition-all min-h-[140px] shadow-inner"
                           />
@@ -586,15 +620,72 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
                        <div>
                           <label className="text-xs font-mono text-slate-500 font-black uppercase tracking-[0.2em] mb-4 block">Collector Arrival Time and Date</label>
                           <textarea 
+                            value={reportText}
+                            onChange={(e) => setReportText(e.target.value)}
                             placeholder="Enter collection schedule manually (e.g. Daily at 8 AM, or specific date and time)..."
                             className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 text-slate-900 font-bold placeholder:text-slate-300 focus:outline-none focus:border-emerald-500/50 transition-all min-h-[140px] shadow-inner"
                           />
                         </div>
                       )}
                       
-                      <div className="mt-8 flex justify-end">
-                        <button className={`px-8 py-4 ${themeColor.replace('text-', 'bg-')} text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all`}>
-                          SUBMIT REPORT
+                      <div className="mt-8 flex items-center justify-end gap-4">
+                        {submitStatus === 'success' && (
+                          <motion.span 
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="text-emerald-600 font-bold text-xs uppercase tracking-widest flex items-center gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Report Submitted Successfully
+                          </motion.span>
+                        )}
+                        {submitStatus === 'error' && (
+                          <motion.span 
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="text-rose-600 font-bold text-xs uppercase tracking-widest"
+                          >
+                            Failed to submit. Try again.
+                          </motion.span>
+                        )}
+                        <button 
+                          disabled={isSubmitting || !reportText.trim()}
+                          onClick={async () => {
+                            if (!reportText.trim()) return;
+                            setIsSubmitting(true);
+                            setSubmitStatus('idle');
+                            
+                            let resourceType = '';
+                            let prefix = '';
+                            if (domainName === 'GRID OPERATIONS') {
+                              resourceType = 'electricity';
+                              prefix = 'Power Outage Reason: ';
+                            } else if (domainName === 'HYDRO OPERATIONS') {
+                              resourceType = 'water';
+                              prefix = 'Water Supply Arrival Time and Date: ';
+                            } else if (domainName === 'SANITATION OPS') {
+                              resourceType = 'waste';
+                              prefix = 'Collector Arrival Time and Date: ';
+                            }
+
+                            try {
+                              await API.post('/resource/add', {
+                                resourceType,
+                                description: prefix + reportText
+                              });
+                              setSubmitStatus('success');
+                              setReportText('');
+                              setTimeout(() => setSubmitStatus('idle'), 3000);
+                            } catch (err) {
+                              console.error('Submit report failed:', err);
+                              setSubmitStatus('error');
+                            } finally {
+                              setIsSubmitting(false);
+                            }
+                          }}
+                          className={`px-8 py-4 ${themeColor.replace('text-', 'bg-')} text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+                        >
+                          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                          {isSubmitting ? 'SUBMITTING...' : 'SUBMIT REPORT'}
                         </button>
                       </div>
                     </div>
@@ -610,3 +701,4 @@ const Dashboard: React.FC<LiveDashboardProps> = ({ onLogout, domainName, iconBg,
 };
 
 export default Dashboard;
+

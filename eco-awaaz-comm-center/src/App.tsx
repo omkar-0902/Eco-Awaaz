@@ -6,6 +6,7 @@ import Process from './components/Process';
 import Operations from './components/Operations';
 import Impact from './components/Impact';
 import AuthFlow from './components/AuthFlow';
+import FAQ from './components/FAQ';
 import Footer from './components/Footer';
 
 // Per-section color mapping (saturated, vivid versions from logo)
@@ -117,6 +118,8 @@ function App() {
           setIsAuthOpen(false);
         }}
       />
+
+      <FAQ />
 
       <div ref={footerRef} data-section="footer">
         <Footer />

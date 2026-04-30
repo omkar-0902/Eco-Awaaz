@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Droplet, Zap, Recycle, Lock, X } from 'lucide-react';
+import { Droplet, Zap, Recycle, Lock, X, Loader2 } from 'lucide-react';
 import Card from './Card';
 import Dashboard from './Dashboard';
+import API from '../services/api';
 
 type OpsCard = {
   role: 'water' | 'electric' | 'waste';
@@ -20,7 +21,9 @@ type OpsCard = {
   iconColor: string;
   icon: React.ReactNode;
   chart: React.ReactNode;
-  tickets: { text: string; count: string }[];
+  endpoint: string;
+  // Fallback tickets shown when not logged in
+  defaultTickets: { text: string; count: string }[];
 };
 
 const opsCards: OpsCard[] = [
@@ -30,6 +33,7 @@ const opsCards: OpsCard[] = [
     name: 'Water Command',
     statLabel: 'LOSS REDUCED',
     statValue: '-18.4%',
+    endpoint: '/home/water',
     valColor: 'text-blue-600',
     glowColor: 'from-blue-600/10',
     glowColorHex: 'rgba(37,99,235,0.08)',
@@ -51,11 +55,11 @@ const opsCards: OpsCard[] = [
         </defs>
       </svg>
     ),
-    tickets: [
-      { text: 'NO WATER SUPPLY', count: '1,245' },
-      { text: 'CONTAMINATED WATER', count: '843' },
-      { text: 'LOW WATER PRESSURE', count: '520' },
-      { text: 'LEAKING PIPE', count: '2,104' }
+    defaultTickets: [
+      { text: 'NO WATER SUPPLY', count: '—' },
+      { text: 'CONTAMINATED WATER', count: '—' },
+      { text: 'LOW WATER PRESSURE', count: '—' },
+      { text: 'LEAKING PIPE', count: '—' }
     ]
   },
   {
@@ -64,6 +68,7 @@ const opsCards: OpsCard[] = [
     name: 'Electricity Command',
     statLabel: 'AVG RESTORE',
     statValue: '37 min',
+    endpoint: '/home/electricity',
     valColor: 'text-amber-500',
     glowColor: 'from-amber-500/10',
     glowColorHex: 'rgba(245,158,11,0.08)',
@@ -80,11 +85,11 @@ const opsCards: OpsCard[] = [
         ))}
       </div>
     ),
-    tickets: [
-      { text: 'NO POWER SUPPLY', count: '4,210' },
-      { text: 'TRANSFORMER OR DC BLAST', count: '112' },
-      { text: 'STREET LIGHT NOT WORKING', count: '840' },
-      { text: 'LOOSE/HANGING WIRE', count: '256' }
+    defaultTickets: [
+      { text: 'NO POWER SUPPLY', count: '—' },
+      { text: 'TRANSFORMER OR DC BLAST', count: '—' },
+      { text: 'STREET LIGHT NOT WORKING', count: '—' },
+      { text: 'LOOSE/HANGING WIRE', count: '—' }
     ]
   },
   {
@@ -93,6 +98,7 @@ const opsCards: OpsCard[] = [
     name: 'Waste Command',
     statLabel: 'PICKUPS TODAY',
     statValue: '1,284',
+    endpoint: '/home/waste',
     valColor: 'text-emerald-500',
     glowColor: 'from-emerald-500/10',
     glowColorHex: 'rgba(16,185,129,0.08)',
@@ -114,11 +120,11 @@ const opsCards: OpsCard[] = [
         </defs>
       </svg>
     ),
-    tickets: [
-      { text: 'GARBAGE NOT COLLECTED', count: '5,214' },
-      { text: 'BLOCKED OR BROKEN DRAINAGE', count: '1,432' },
-      { text: 'GARBAGE DUMPED ON ROADS', count: '843' },
-      { text: 'BAD SMELL OR DISEASE RISK', count: '1,102' }
+    defaultTickets: [
+      { text: 'GARBAGE NOT COLLECTED', count: '—' },
+      { text: 'BLOCKED OR BROKEN DRAINAGE', count: '—' },
+      { text: 'GARBAGE DUMPED ON ROADS', count: '—' },
+      { text: 'BAD SMELL OR DISEASE RISK', count: '—' }
     ]
   }
 ];
@@ -130,18 +136,46 @@ interface OperationsProps {
 
 const Operations: React.FC<OperationsProps> = ({ user, onOpenAuth }) => {
   const [activeDashboard, setActiveDashboard] = useState<OpsCard | null>(null);
+  // Live ticket data keyed by role
+  const [liveData, setLiveData] = useState<Record<string, { text: string; count: string }[]>>({});
+  const [loadingRoles, setLoadingRoles] = useState<Record<string, boolean>>({});
+
+  // Fetch all 3 endpoints on mount so data is always visible
+  useEffect(() => {
+    opsCards.forEach(card => {
+      setLoadingRoles(prev => ({ ...prev, [card.role]: true }));
+      API.get(card.endpoint)
+        .then((res: { data: Record<string, number> }) => {
+          const data: Record<string, number> = res.data;
+          const formatted = Object.entries(data).map(([text, count]) => ({
+            text: text.toUpperCase(),
+            count: count.toString()
+          }));
+          setLiveData(prev => ({ ...prev, [card.role]: formatted }));
+        })
+        .catch((err: unknown) => {
+          console.error(`Failed to fetch ${card.role} data:`, err);
+        })
+        .finally(() => {
+          setLoadingRoles(prev => ({ ...prev, [card.role]: false }));
+        });
+    });
+  }, []);
 
   const handleCardClick = (card: OpsCard) => {
     if (!user) {
-      // Not logged in → open login modal for this role
       onOpenAuth('login', card.role);
       return;
     }
     if (user.role === card.role) {
-      // Logged in and role matches → open inline dashboard
       setActiveDashboard(card);
     }
-    // If role doesn't match → do nothing, card is blurred
+  };
+
+  const getTickets = (card: OpsCard): { text: string; count: string }[] => {
+    const live = liveData[card.role];
+    if (live && live.length > 0) return live;
+    return card.defaultTickets;
   };
 
   return (
@@ -161,6 +195,7 @@ const Operations: React.FC<OperationsProps> = ({ user, onOpenAuth }) => {
             const isLoggedIn = !!user;
             const isOwner = isLoggedIn && user.role === card.role;
             const isLocked = isLoggedIn && !isOwner;
+            const tickets = getTickets(card);
 
             return (
               <motion.div
@@ -190,16 +225,16 @@ const Operations: React.FC<OperationsProps> = ({ user, onOpenAuth }) => {
                     rotateAmplitude={isLocked ? 0 : 8}
                     scaleOnHover={isLocked ? 1 : 1.03}
                   >
-                    <div className={`w-full h-full bg-white border-2 shadow-[0_20px_60px_rgba(0,0,0,0.08)] rounded-[24px] overflow-hidden relative flex flex-col transition-colors duration-300 ${isOwner ? `border-2 ${card.hoverBorder} ring-2 ring-offset-2 ring-current` : 'border-slate-200'}`}>
+                    <div className={`w-full h-full bg-white border-2 shadow-[0_20px_60px_rgba(0,0,0,0.08)] rounded-[24px] overflow-hidden relative flex flex-col transition-all duration-300 ${isOwner ? `border-current ${card.valColor} ring-1 ring-current ring-offset-2` : 'border-slate-200'} ${card.hoverBorder}`}>
                       {/* Owner badge */}
                       {isOwner && (
                         <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${card.btnBg} ${card.btnText} shadow-lg`}>
-                          ✓ Your Domain
+                          ✓ YOUR DOMAIN
                         </div>
                       )}
 
                       {/* Top Glow Gradient */}
-                      <div className={`absolute top-0 left-0 right-0 h-[200px] bg-gradient-to-b ${card.glowColor} to-transparent pointer-events-none opacity-40`} />
+                      <div className={`absolute top-0 left-0 right-0 h-[200px] bg-gradient-to-b ${card.glowColor} to-transparent pointer-events-none ${isOwner ? 'opacity-70' : 'opacity-40'}`} />
 
                       <div className="p-8 relative z-10 flex flex-col flex-1">
 
@@ -219,23 +254,30 @@ const Operations: React.FC<OperationsProps> = ({ user, onOpenAuth }) => {
                           </span>
                         </div>
 
-                        {/* Complaints */}
+                        {/* Complaints / Live Tickets */}
                         <div className="space-y-3 mb-6 flex-1">
-                          {card.tickets.map((t, i) => (
-                            <div key={i} className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-sm hover:bg-slate-100 transition-colors">
-                              <span className="text-slate-900 text-[11px] lg:text-xs font-bold uppercase truncate">{t.text}</span>
-                              <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-widest whitespace-nowrap bg-white border border-slate-200 shadow-sm ${card.valColor}`}>
-                                {t.count} ISSUED
-                              </span>
+                          {loadingRoles[card.role] ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 className={`w-6 h-6 animate-spin ${card.valColor}`} />
+                              <span className="ml-2 text-sm text-slate-500 font-bold">Fetching live data...</span>
                             </div>
-                          ))}
+                          ) : (
+                            tickets.map((t, i) => (
+                              <div key={i} className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-sm hover:bg-slate-100 transition-colors">
+                                <span className="text-slate-900 text-[11px] lg:text-xs font-bold uppercase truncate">{t.text}</span>
+                                <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-widest whitespace-nowrap bg-white border border-slate-200 shadow-sm ${card.valColor} ${t.count !== '—' ? 'ring-1 ring-current' : ''}`}>
+                                  {t.count !== '—' ? `${t.count} ACTIVE` : '—'}
+                                </span>
+                              </div>
+                            ))
+                          )}
                         </div>
 
                         {/* Footer */}
                         <div className="flex items-center justify-center text-xs text-slate-800 mt-auto pt-5 border-t border-slate-200 font-black uppercase tracking-wide">
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full bg-current ${card.valColor} animate-pulse shadow-sm`} />
-                            <span>Live Sync System</span>
+                            <span>{liveData[card.role] ? 'Live API Data' : 'Live Sync System'}</span>
                           </div>
                         </div>
 

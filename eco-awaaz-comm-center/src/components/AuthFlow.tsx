@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Droplet, Zap, Recycle, ShieldCheck, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import API from '../services/api';
 
-
 type OperatorType = 'water' | 'electric' | 'waste';
 type FlowState = 'hidden' | 'choice' | 'animating' | 'form';
 

@@ -34,7 +34,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout, onOpenAuth }) => {
     { label: 'Problem', href: '#problem' },
     { label: 'Process', href: '#process' },
     { label: 'Operations', href: '#operations' },
-    { label: 'Impact', href: '#impact' }
+    { label: 'Impact', href: '#impact' },
+    { label: 'FAQs', href: '#faqs' }
   ];
 
   return (
